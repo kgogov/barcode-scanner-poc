@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Playground</title>
+	<style>
+		#video {
+			display: none;
+		}
+	</style>
+</head>
+
+<body>
+	<video id="video" width="800" height="600" style="border: 1px solid gray"></video>
+	<p id="result"></p>
+	<button id="startButton">Start Camera</button>
+	<button id="stopButton" disabled>Stop Camera</button>
+
+	<script src="https://unpkg.com/@zxing/library@latest"></script>
+	<script>
+		document.addEventListener('DOMContentLoaded', () => {
+			const codeReader = new ZXing.BrowserMultiFormatReader();
+			const videoElement = document.getElementById('video');
+			const resultElement = document.getElementById('result');
+			const startButton = document.getElementById('startButton');
+			const stopButton = document.getElementById('stopButton');
+
+			let isCameraRunning = false;
+
+			const startCamera = () => {
+				codeReader.decodeFromVideoDevice(null, videoElement, (result, error) => {
+					if (result) {
+						resultElement.textContent = result.text;
+						console.log(result.text);
+					}
+					if (error && !(error instanceof ZXing.NotFoundException)) {
+						resultElement.textContent = 'Error: ' + error.message;
+						console.error(error);
+					}
+				}).then(() => {
+					isCameraRunning = true;
+					startButton.disabled = true;
+					stopButton.disabled = false;
+					videoElement.style.display = 'block';
+				}).catch(err => {
+					resultElement.textContent = 'Camera error: ' + err.message;
+					console.error(err);
+				});
+			};
+
+			const stopCamera = () => {
+				if (isCameraRunning) {
+					codeReader.reset();
+					resultElement.textContent = '';
+					stopButton.disabled = true;
+					startButton.disabled = false;
+					videoElement.style.display = 'none';
+					isCameraRunning = false;
+				}
+			};
+
+			startButton.addEventListener('click', startCamera);
+			stopButton.addEventListener('click', stopCamera);
+		});
+	</script>
+</body>
+
+</html>
