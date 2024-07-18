@@ -1,0 +1,14 @@
+#video {
+	display: none;
+}
+
+#overlay {
+	position: absolute;
+	left: 0;
+	top: 0;
+	display: none;
+}
+
+button:disabled {
+	cursor: not-allowed;
+}
