@@ -5,15 +5,24 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Playground</title>
+	<link rel="stylesheet" href="./styles/reset.css">
 	<style>
 		#video {
+			display: none;
+		}
+
+		#overlay {
+			position: absolute;
+			left: 0;
+			top: 0;
 			display: none;
 		}
 	</style>
 </head>
 
 <body>
-	<video id="video" width="800" height="600" style="border: 1px solid gray"></video>
+	<video id="video" width="800" height="600"></video>
+	<canvas id="overlay" width="800" height="600"></canvas>
 	<p id="result"></p>
 	<button id="startButton">Start Camera</button>
 	<button id="stopButton" disabled>Stop Camera</button>
@@ -23,18 +32,56 @@
 		document.addEventListener('DOMContentLoaded', () => {
 			const codeReader = new ZXing.BrowserMultiFormatReader();
 			const videoElement = document.getElementById('video');
+			const overlayElement = document.getElementById('overlay');
 			const resultElement = document.getElementById('result');
 			const startButton = document.getElementById('startButton');
 			const stopButton = document.getElementById('stopButton');
 
+			const overlayContext = overlayElement.getContext('2d');
 			let isCameraRunning = false;
 
 			const startCamera = () => {
 				codeReader.decodeFromVideoDevice(null, videoElement, (result, error) => {
+					overlayContext.clearRect(0, 0, overlayElement.width, overlayElement.height);
+
 					if (result) {
 						resultElement.textContent = result.text;
-						console.log(result.text);
+						console.log(result);
+
+						const videoWidth = videoElement.videoWidth;
+						const videoHeight = videoElement.videoHeight;
+						const canvasWidth = overlayElement.width;
+						const canvasHeight = overlayElement.height;
+						const widthRatio = canvasWidth / videoWidth;
+						const heightRatio = canvasHeight / videoHeight;
+
+						const points = result.resultPoints;
+						if (points.length >= 2) {
+							// Log points for debugging
+							console.log('Barcode Points:', points);
+							const scaledPoints = points.map(point => ({
+								x: point.x * widthRatio,
+								y: point.y * heightRatio
+							}));
+
+							// Draw the outline
+							const xMin = Math.min(...scaledPoints.map(p => p.x));
+							const xMax = Math.max(...scaledPoints.map(p => p.x));
+							const yMin = Math.min(...scaledPoints.map(p => p.y));
+							const yMax = Math.max(...scaledPoints.map(p => p.y));
+
+							overlayContext.beginPath();
+							overlayContext.moveTo(xMin, yMin);
+							overlayContext.lineTo(xMax, yMin);
+							overlayContext.lineTo(xMax, yMax);
+							overlayContext.lineTo(xMin, yMax);
+							overlayContext.closePath();
+							overlayContext.lineWidth = 2;
+							overlayContext.strokeStyle = 'red';
+							overlayContext.stroke();
+						}
 					}
+
 					if (error && !(error instanceof ZXing.NotFoundException)) {
 						resultElement.textContent = 'Error: ' + error.message;
 						console.error(error);
@@ -44,6 +91,7 @@
 					startButton.disabled = true;
 					stopButton.disabled = false;
 					videoElement.style.display = 'block';
+					overlayElement.style.display = 'block';
 				}).catch(err => {
 					resultElement.textContent = 'Camera error: ' + err.message;
 					console.error(err);
@@ -57,6 +105,8 @@
 					stopButton.disabled = true;
 					startButton.disabled = false;
 					videoElement.style.display = 'none';
+					overlayElement.style.display = 'none';
+					overlayContext.clearRect(0, 0, overlayElement.width, overlayElement.height);
 					isCameraRunning = false;
 				}
 			};
