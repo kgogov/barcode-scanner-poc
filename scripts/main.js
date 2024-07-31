@@ -40,12 +40,16 @@ const initializeScanner = async () => {
 		const canvasWidth = overlayElement.width;
 		const canvasHeight = overlayElement.height;
 
+		// Use the smaller dimension to keep the capture region proportional
+		const regionHeight = Math.min(canvasWidth, canvasHeight) * 0.45; // Height is 45% of the smaller dimension
+		const regionWidth = regionHeight * 1.2; // Width is 120% of the height
+
 		// Define the capture region as centered and proportional
 		captureRegion = {
-			x: canvasWidth * 0.25,    // 25% from left
-			y: canvasHeight * 0.25,   // 25% from top
-			width: canvasWidth * 0.5, // 50% of the width
-			height: canvasHeight * 0.5 // 50% of the height
+			x: (canvasWidth - regionWidth) / 2, // Centered horizontally
+			y: (canvasHeight - regionHeight) / 2, // Centered vertically
+			width: regionWidth,
+			height: regionHeight
 		};
 
 		drawCaptureRegion();
@@ -53,9 +57,15 @@ const initializeScanner = async () => {
 
 	const drawCaptureRegion = () => {
 		overlayContext.clearRect(0, 0, overlayElement.width, overlayElement.height);
-		overlayContext.strokeStyle = 'green';
-		overlayContext.lineWidth = 2;
-		overlayContext.strokeRect(captureRegion.x, captureRegion.y, captureRegion.width, captureRegion.height);
+
+		const { x, y, width, height } = captureRegion;
+
+		// Draw tinted outer area
+		overlayContext.fillStyle = 'rgba(0, 0, 0, 0.5)';
+		overlayContext.fillRect(0, 0, overlayElement.width, overlayElement.height);
+
+		// Clear the capture region to make it stand out
+		overlayContext.clearRect(x, y, width, height);
 	};
 
 	const toggleCameraButtons = (isRunning) => {
