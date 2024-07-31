@@ -6,14 +6,53 @@ const initializeScanner = async () => {
 	const startButton = document.getElementById('startButton');
 	const stopButton = document.getElementById('stopButton');
 	const cameraSelect = document.getElementById('cameraSelect');
+	const videoContainer = document.getElementById('video-container');
 	const overlayContext = overlayElement.getContext('2d');
+
 	let isCameraRunning = false;
 	let selectedDeviceId = null;
+	let captureRegion = {};
 
-	// Define the capture region (x, y, width, height)
-	const captureRegion = { x: 200, y: 150, width: 400, height: 300 };
+	const checkBrowserSupport = () => {
+		if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+			alert('Your browser does not support accessing the camera. Please use a modern browser like Chrome or Safari.');
+			return false;
+		}
+		return true;
+	};
+
+	const adjustCaptureRegion = () => {
+		const videoWidth = videoElement.videoWidth;
+		const videoHeight = videoElement.videoHeight;
+
+		// Calculate the aspect ratio
+		const aspectRatio = videoWidth / videoHeight;
+
+		// Adjust the canvas to maintain the aspect ratio of the video
+		if (videoElement.clientWidth / aspectRatio <= videoElement.clientHeight) {
+			overlayElement.width = videoElement.clientWidth;
+			overlayElement.height = videoElement.clientWidth / aspectRatio;
+		} else {
+			overlayElement.width = videoElement.clientHeight * aspectRatio;
+			overlayElement.height = videoElement.clientHeight;
+		}
+
+		const canvasWidth = overlayElement.width;
+		const canvasHeight = overlayElement.height;
+
+		// Define the capture region as centered and proportional
+		captureRegion = {
+			x: canvasWidth * 0.25,    // 25% from left
+			y: canvasHeight * 0.25,   // 25% from top
+			width: canvasWidth * 0.5, // 50% of the width
+			height: canvasHeight * 0.5 // 50% of the height
+		};
+
+		drawCaptureRegion();
+	};
 
 	const drawCaptureRegion = () => {
+		overlayContext.clearRect(0, 0, overlayElement.width, overlayElement.height);
 		overlayContext.strokeStyle = 'green';
 		overlayContext.lineWidth = 2;
 		overlayContext.strokeRect(captureRegion.x, captureRegion.y, captureRegion.width, captureRegion.height);
@@ -23,8 +62,7 @@ const initializeScanner = async () => {
 		startButton.disabled = isRunning;
 		stopButton.disabled = !isRunning;
 		cameraSelect.disabled = isRunning;
-		videoElement.style.display = isRunning ? 'block' : 'none';
-		overlayElement.style.display = isRunning ? 'block' : 'none';
+		videoContainer.style.display = isRunning ? 'block' : 'none';
 	};
 
 	const isBarcodeWithinCaptureRegion = (points) => {
@@ -37,23 +75,31 @@ const initializeScanner = async () => {
 	};
 
 	const initializeCameraOptions = async () => {
-		const devices = await codeReader.listVideoInputDevices();
-		cameraSelect.innerHTML = '';
-		devices.forEach(device => {
-			const option = document.createElement('option');
-			option.value = device.deviceId;
-			option.textContent = device.label;
-			cameraSelect.appendChild(option);
-		});
-		if (devices.length > 0) {
-			selectedDeviceId = devices[0].deviceId;
+		if (!checkBrowserSupport()) return;
+
+		try {
+			const devices = await codeReader.listVideoInputDevices();
+			cameraSelect.innerHTML = '';
+			devices.forEach(device => {
+				const option = document.createElement('option');
+				option.value = device.deviceId;
+				option.textContent = device.label;
+				cameraSelect.appendChild(option);
+			});
+			if (devices.length > 0) {
+				selectedDeviceId = devices[0].deviceId;
+			}
+		} catch (error) {
+			alert('Error accessing camera devices. Please ensure you have granted necessary permissions.');
+			console.error(error);
 		}
 	};
 
 	const startCamera = () => {
+		if (!checkBrowserSupport()) return;
+
 		codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement, (result, error) => {
-			overlayContext.clearRect(0, 0, overlayElement.width, overlayElement.height);
-			drawCaptureRegion();
+			adjustCaptureRegion();
 
 			if (result) {
 				resultElement.textContent = result.text;
@@ -122,10 +168,10 @@ const initializeScanner = async () => {
 
 	startButton.addEventListener('click', startCamera);
 	stopButton.addEventListener('click', stopCamera);
-
 	cameraSelect.addEventListener('change', (event) => {
 		selectedDeviceId = event.target.value;
 	});
+	window.addEventListener('resize', adjustCaptureRegion);
 
 	await initializeCameraOptions();
 };
