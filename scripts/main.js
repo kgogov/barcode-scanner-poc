@@ -1,13 +1,14 @@
-const initializeScanner = () => {
+const initializeScanner = async () => {
 	const codeReader = new ZXing.BrowserMultiFormatReader();
 	const videoElement = document.getElementById('video');
 	const overlayElement = document.getElementById('overlay');
 	const resultElement = document.getElementById('result');
 	const startButton = document.getElementById('startButton');
 	const stopButton = document.getElementById('stopButton');
-
+	const cameraSelect = document.getElementById('cameraSelect');
 	const overlayContext = overlayElement.getContext('2d');
 	let isCameraRunning = false;
+	let selectedDeviceId = null;
 
 	// Define the capture region (x, y, width, height)
 	const captureRegion = { x: 200, y: 150, width: 400, height: 300 };
@@ -21,6 +22,7 @@ const initializeScanner = () => {
 	const toggleCameraButtons = (isRunning) => {
 		startButton.disabled = isRunning;
 		stopButton.disabled = !isRunning;
+		cameraSelect.disabled = isRunning;
 		videoElement.style.display = isRunning ? 'block' : 'none';
 		overlayElement.style.display = isRunning ? 'block' : 'none';
 	};
@@ -34,8 +36,22 @@ const initializeScanner = () => {
 		);
 	};
 
+	const initializeCameraOptions = async () => {
+		const devices = await codeReader.listVideoInputDevices();
+		cameraSelect.innerHTML = '';
+		devices.forEach(device => {
+			const option = document.createElement('option');
+			option.value = device.deviceId;
+			option.textContent = device.label;
+			cameraSelect.appendChild(option);
+		});
+		if (devices.length > 0) {
+			selectedDeviceId = devices[0].deviceId;
+		}
+	};
+
 	const startCamera = () => {
-		codeReader.decodeFromVideoDevice(null, videoElement, (result, error) => {
+		codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement, (result, error) => {
 			overlayContext.clearRect(0, 0, overlayElement.width, overlayElement.height);
 			drawCaptureRegion();
 
@@ -60,17 +76,8 @@ const initializeScanner = () => {
 				const yMin = Math.min(...points.map(p => p.y));
 				const yMax = Math.max(...points.map(p => p.y));
 
-				overlayContext.beginPath();
-				overlayContext.moveTo(xMin, yMin);
-				overlayContext.lineTo(xMax, yMin);
-				overlayContext.lineTo(xMax, yMax);
-				overlayContext.lineTo(xMin, yMax);
-				overlayContext.closePath();
-				overlayContext.strokeStyle = 'red';
-				overlayContext.lineWidth = 2;
-				overlayContext.stroke();
+				drawBoundingBox(xMin, xMax, yMin, yMax);
 
-				// Check if the barcode is within the capture region
 				if (isBarcodeWithinCaptureRegion(points)) {
 					resultElement.textContent = `Success: ${result.text}`;
 				} else {
@@ -101,8 +108,26 @@ const initializeScanner = () => {
 		}
 	};
 
+	const drawBoundingBox = (xMin, xMax, yMin, yMax) => {
+		overlayContext.beginPath();
+		overlayContext.moveTo(xMin, yMin);
+		overlayContext.lineTo(xMax, yMin);
+		overlayContext.lineTo(xMax, yMax);
+		overlayContext.lineTo(xMin, yMax);
+		overlayContext.closePath();
+		overlayContext.strokeStyle = 'red';
+		overlayContext.lineWidth = 2;
+		overlayContext.stroke();
+	};
+
 	startButton.addEventListener('click', startCamera);
 	stopButton.addEventListener('click', stopCamera);
+
+	cameraSelect.addEventListener('change', (event) => {
+		selectedDeviceId = event.target.value;
+	});
+
+	await initializeCameraOptions();
 };
 
 document.addEventListener('DOMContentLoaded', initializeScanner);
